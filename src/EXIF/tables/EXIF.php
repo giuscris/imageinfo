@@ -70,7 +70,8 @@ return [
     ],
     'DateTime' => [
         'type'       => 'datetime',
-        'timeoffset' => 'OffsetTime'
+        'timeoffset' => 'OffsetTime',
+        'subseconds' => 'SubSecTime'
     ],
     'ExifVersion' => [
         'type' => 'version'
@@ -103,11 +104,13 @@ return [
     ],
     'DateTimeOriginal' => [
         'type'       => 'datetime',
-        'timeoffset' => 'OffsetTimeOriginal'
+        'timeoffset' => 'OffsetTimeOriginal',
+        'subseconds' => 'SubSecTimeOriginal'
     ],
     'DateTimeDigitized' => [
         'type'       => 'datetime',
-        'timeoffset' => 'OffsetTimeDigitized'
+        'timeoffset' => 'OffsetTimeDigitized',
+        'subseconds' => 'SubSecTimeDigitized'
     ],
     'ExposureTime' => [
         'description' => function (string $value) {

@@ -3,8 +3,6 @@
 namespace ImageInfo\EXIF;
 
 use Closure;
-use DateTimeImmutable;
-use DateTimeZone;
 use UnexpectedValueException;
 
 class EXIFReader
@@ -12,8 +10,6 @@ class EXIFReader
     protected const EXIF_LITTLE_ENDIAN = 'II';
 
     protected const EXIF_BIG_ENDIAN = 'MM';
-
-    protected const EXIF_DATETIME_FORMAT = 'Y:m:d H:i:s';
 
     protected const EXIF_ENCODING_ASCII = "ASCII\x00\x00\x00";
 
@@ -166,10 +162,13 @@ class EXIFReader
                             : $this->parseRational($data[$key]);
                         break;
                     case 'datetime':
-                        $dateTime = $this->parseDateTime($data[$key], $data[$this->EXIFTable[$key]['timeoffset']] ?? null);
-                        if ($dateTime !== null) {
-                            $parsedValue = $dateTime->format('d/m/Y H:i:s');
+                        $subsecondsKey = $this->EXIFTable[$key]['subseconds'];
+                        $timeoffsetKey = $this->EXIFTable[$key]['timeoffset'];
+                        $EXIFDateTime = EXIFDateTime::createFromEXIFTags($data[$key], $data[$subsecondsKey] ?? null, $data[$timeoffsetKey] ?? null);
+                        if ($EXIFDateTime === false) {
+                            break;
                         }
+                        $parsedValue = $EXIFDateTime;
                         break;
                     case 'coords':
                         $dst = array_map([static::class, 'parseRational'], array_replace([0, 0, 0], $data[$key]));
@@ -204,17 +203,6 @@ class EXIFReader
         }
         [$num, $den] = explode('/', $fraction . '/1');
         return $num / $den;
-    }
-
-    protected function parseDateTime(?string $datetime, ?string $timezone): ?DateTimeImmutable
-    {
-        if ($datetime === null) {
-            return null;
-        }
-        if ($timezone !== null) {
-            $timezone = new DateTimeZone(str_replace(':', '', $timezone));
-        }
-        return DateTimeImmutable::createFromFormat(self::EXIF_DATETIME_FORMAT, $datetime, $timezone);
     }
 
     protected function parseCoordinates(array $dms, ?string $cardinalRef): float
