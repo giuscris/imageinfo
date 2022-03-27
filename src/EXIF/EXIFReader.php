@@ -9,13 +9,17 @@ use UnexpectedValueException;
 
 class EXIFReader
 {
+    protected const EXIF_LITTLE_ENDIAN = 'II';
+
+    protected const EXIF_BIG_ENDIAN = 'MM';
+
     protected const EXIF_DATETIME_FORMAT = 'Y:m:d H:i:s';
 
-    protected const EXIF_ENCODING_ASCII = "\x41\x53\x43\x49\x49\x00\x00\x00";
+    protected const EXIF_ENCODING_ASCII = "ASCII\x00\x00\x00";
 
-    protected const EXIF_ENCODING_JIS = "\x4a\x49\x53\x00\x00\x00\x00\x00";
+    protected const EXIF_ENCODING_JIS = "JIS\x00\x00\x00\x00\x00";
 
-    protected const EXIF_ENCODING_UTF8 = "\x55\x4e\x49\x43\x4f\x44\x45\x00";
+    protected const EXIF_ENCODING_UNICODE = "UNICODE\x00";
 
     protected const EXIF_ENCODING_UNDEFINED = "\x00\x00\x00\x00\x00\x00\x00\x00";
 
@@ -65,6 +69,8 @@ class EXIFReader
         'SubjectLocation' => 'SubjectArea'
     ];
 
+    protected string $byteOrder;
+
     protected array $data;
 
     protected array $info;
@@ -72,6 +78,7 @@ class EXIFReader
     public function __construct(array $data)
     {
         $this->info = require 'exif-format-info.php';
+        $this->byteOrder = $this->getByteOrder($data);
         $this->data = $this->parse($data);
     }
 
@@ -128,14 +135,15 @@ class EXIFReader
             }
 
             if ($key === 'UserComment') {
-                $encoding = $this->getUserCommentEncoding($value);
-                if ($encoding === null) {
+                try {
+                    $value = rtrim($this->parseUserComment($value), "\x00");
+                } catch (UnexpectedValueException $e) {
                     continue;
                 }
-                if ($value === false) {
-                    continue;
-                }
-                $value = rtrim($value, "\x00");
+            }
+
+            if (is_string($value) && mb_check_encoding($value, 'UTF-8') === false) {
+                continue;
             }
 
             $parsedValue = $value;
@@ -173,10 +181,6 @@ class EXIFReader
                 }
             }
 
-            if (mb_check_encoding($value, 'utf-8') === false) {
-                continue;
-            }
-
             $parsedData[$key] = $value !== $parsedValue ? [$value, $parsedValue] : [$value];
 
             if (isset(self::TAG_ALIASES[$key])) {
@@ -186,6 +190,11 @@ class EXIFReader
         }
 
         return $parsedData;
+    }
+
+    protected function getByteOrder(array &$data): string
+    {
+        return $data['COMPUTED']['ByteOrderMotorola'] ? self::EXIF_BIG_ENDIAN : self::EXIF_LITTLE_ENDIAN;
     }
 
     protected function parseRational(?string $fraction): ?float
@@ -227,12 +236,25 @@ class EXIFReader
                 return 'ASCII';
             case self::EXIF_ENCODING_JIS:
                 return 'JIS';
-            case self::EXIF_ENCODING_UTF8:
-                return 'UTF-8';
+            case self::EXIF_ENCODING_UNICODE:
+                return $this->byteOrder === self::EXIF_BIG_ENDIAN ? 'UCS-2BE' : 'UCS-2LE';
             case self::EXIF_ENCODING_UNDEFINED:
                 return 'auto';
             default:
                 return null;
         }
+    }
+
+    protected function parseUserComment(string $data): ?string
+    {
+        $encoding = $this->getUserCommentEncoding($data);
+        if ($encoding === null) {
+            throw new UnexpectedValueException('Invalid user comment encoding');
+        }
+        $userComment = mb_convert_encoding(substr($data, 8), 'UTF-8', $encoding);
+        if ($userComment === false) {
+            throw new UnexpectedValueException('Cannot convert user comment to UTF-8');
+        }
+        return $userComment;
     }
 }
