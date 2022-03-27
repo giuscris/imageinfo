@@ -73,11 +73,11 @@ class EXIFReader
 
     protected array $data;
 
-    protected array $info;
+    protected array $EXIFTable;
 
     public function __construct(array $data)
     {
-        $this->info = require 'exif-format-info.php';
+        $this->EXIFTable = require __DIR__ . '/tables/EXIF.php';
         $this->byteOrder = $this->getByteOrder($data);
         $this->data = $this->parse($data);
     }
@@ -148,8 +148,8 @@ class EXIFReader
 
             $parsedValue = $value;
 
-            if (isset($this->info[$key]['description'])) {
-                $description = $this->info[$key]['description'];
+            if (isset($this->EXIFTable[$key]['description'])) {
+                $description = $this->EXIFTable[$key]['description'];
                 if (is_array($description)) {
                     $parsedValue = $description[$value] ?? $value;
                 }
@@ -158,22 +158,22 @@ class EXIFReader
                 }
             }
 
-            if (isset($this->info[$key]['type'])) {
-                switch ($this->info[$key]['type']) {
+            if (isset($this->EXIFTable[$key]['type'])) {
+                switch ($this->EXIFTable[$key]['type']) {
                     case 'rational':
                         $parsedValue = is_array($data[$key])
                             ? array_map([$this, 'parseRational'], $data[$key])
                             : $this->parseRational($data[$key]);
                         break;
                     case 'datetime':
-                        $dateTime = $this->parseDateTime($data[$key], $data[$this->info[$key]['timeoffset']] ?? null);
+                        $dateTime = $this->parseDateTime($data[$key], $data[$this->EXIFTable[$key]['timeoffset']] ?? null);
                         if ($dateTime !== null) {
                             $parsedValue = $dateTime->format('d/m/Y H:i:s');
                         }
                         break;
                     case 'coords':
                         $dst = array_map([static::class, 'parseRational'], array_replace([0, 0, 0], $data[$key]));
-                        $parsedValue = $this->parseCoordinates($dst, $data[$this->info[$key]['ref']] ?? null);
+                        $parsedValue = $this->parseCoordinates($dst, $data[$this->EXIFTable[$key]['ref']] ?? null);
                         break;
                     case 'version':
                         $parsedValue = $this->parseVersion($data[$key]);
