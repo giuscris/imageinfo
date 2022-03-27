@@ -65,15 +65,15 @@ class EXIFReader
         'SubjectLocation' => 'SubjectArea'
     ];
 
+    protected static array $EXIFTable;
+
     protected string $byteOrder;
 
     protected array $data;
 
-    protected array $EXIFTable;
-
     public function __construct(array $data)
     {
-        $this->EXIFTable = require __DIR__ . '/tables/EXIF.php';
+        static::$EXIFTable ??= require __DIR__ . '/tables/EXIF.php';
         $this->byteOrder = $this->getByteOrder($data);
         $this->data = $this->parse($data);
     }
@@ -144,8 +144,8 @@ class EXIFReader
 
             $parsedValue = $value;
 
-            if (isset($this->EXIFTable[$key]['description'])) {
-                $description = $this->EXIFTable[$key]['description'];
+            if (isset(static::$EXIFTable[$key]['description'])) {
+                $description = static::$EXIFTable[$key]['description'];
                 if (is_array($description)) {
                     $parsedValue = $description[$value] ?? $value;
                 }
@@ -154,16 +154,16 @@ class EXIFReader
                 }
             }
 
-            if (isset($this->EXIFTable[$key]['type'])) {
-                switch ($this->EXIFTable[$key]['type']) {
+            if (isset(static::$EXIFTable[$key]['type'])) {
+                switch (static::$EXIFTable[$key]['type']) {
                     case 'rational':
                         $parsedValue = is_array($data[$key])
                             ? array_map([$this, 'parseRational'], $data[$key])
                             : $this->parseRational($data[$key]);
                         break;
                     case 'datetime':
-                        $subsecondsKey = $this->EXIFTable[$key]['subseconds'];
-                        $timeoffsetKey = $this->EXIFTable[$key]['timeoffset'];
+                        $subsecondsKey = static::$EXIFTable[$key]['subseconds'];
+                        $timeoffsetKey = static::$EXIFTable[$key]['timeoffset'];
                         $EXIFDateTime = EXIFDateTime::createFromEXIFTags($data[$key], $data[$subsecondsKey] ?? null, $data[$timeoffsetKey] ?? null);
                         if ($EXIFDateTime === false) {
                             break;
@@ -172,7 +172,7 @@ class EXIFReader
                         break;
                     case 'coords':
                         $dst = array_map([static::class, 'parseRational'], array_replace([0, 0, 0], $data[$key]));
-                        $parsedValue = $this->parseCoordinates($dst, $data[$this->EXIFTable[$key]['ref']] ?? null);
+                        $parsedValue = $this->parseCoordinates($dst, $data[static::$EXIFTable[$key]['ref']] ?? null);
                         break;
                     case 'version':
                         $parsedValue = $this->parseVersion($data[$key]);
