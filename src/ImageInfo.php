@@ -198,6 +198,19 @@ class ImageInfo
     }
 
     /**
+     * Set EXIF data
+     *
+     * @throws RuntimeException if the image does not support EXIF data
+     */
+    public function setEXIFData(EXIFData $data): void
+    {
+        if (!isset($this->handler)) {
+            $this->handler = $this->getHandler();
+        }
+        $this->handler->setEXIFData($data);
+    }
+
+    /**
      * Remove EXIF data
      *
      * @throws RuntimeException if the image does not support EXIF data

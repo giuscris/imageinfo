@@ -120,6 +120,16 @@ class JPEGHandler extends AbstractHandler
         return null;
     }
 
+    public function setEXIFData(EXIFData $data): void
+    {
+        foreach ($this->decoder->decode($this->data) as $segment) {
+            if ($segment['type'] === 0xd8) {
+                $this->data = substr_replace($this->data, $this->encodeEXIFData($data->getData()), $segment['position'], 0);
+                break;
+            }
+        }
+    }
+
     public function removeEXIFData(): void
     {
         foreach ($this->decoder->decode($this->data) as $segment) {
@@ -156,6 +166,12 @@ class JPEGHandler extends AbstractHandler
         }
 
         return implode('', $chunks);
+    }
+
+    protected function encodeEXIFData(string $data): string
+    {
+        $value = self::EXIF_HEADER . $data;
+        return "\xff\xe1" . pack('n', strlen($value) + 2) . $value;
     }
 
     protected function getDecoder(): JPEGDecoder

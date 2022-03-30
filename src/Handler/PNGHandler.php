@@ -116,6 +116,17 @@ class PNGHandler extends AbstractHandler
         return null;
     }
 
+    public function setEXIFData(EXIFData $data): void
+    {
+        foreach ($this->decoder->decode($this->data) as $chunk) {
+            if ($chunk['type'] === 'IHDR') {
+                $iCCPChunk = $this->encodeChunk('eXIf', $data->getData());
+                $this->data = substr_replace($this->data, $iCCPChunk, $chunk['position'], 0);
+                break;
+            }
+        }
+    }
+
     public function removeEXIFData(): void
     {
         foreach ($this->decoder->decode($this->data) as $chunk) {

@@ -112,6 +112,17 @@ class WEBPHandler extends AbstractHandler
         return null;
     }
 
+    public function setEXIFData(EXIFData $data): void
+    {
+        foreach ($this->decoder->decode($this->data) as $chunk) {
+            if (in_array($chunk['type'], ['VP8X', 'VP8 ', 'VP8L'], true)) {
+                $EXIFChunk = $this->encodeChunk('EXIF', $data->getData());
+                $this->data = substr_replace($this->data, $EXIFChunk, $chunk['position'], 0);
+                break;
+            }
+        }
+    }
+
     public function removeEXIFData(): void
     {
         foreach ($this->decoder->decode($this->data) as $chunk) {

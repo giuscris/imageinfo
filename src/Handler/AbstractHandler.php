@@ -65,6 +65,13 @@ abstract class AbstractHandler
     abstract public function getEXIFData(): ?EXIFData;
 
     /**
+     * Set EXIF data
+     *
+     * @throws RuntimeException if the image does not support EXIF data
+     */
+    abstract public function setEXIFData(EXIFData $data): void;
+
+    /**
      * Remove EXIF data
      *
      * @throws RuntimeException if the image does not support EXIF data
