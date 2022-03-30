@@ -211,6 +211,28 @@ class ImageInfo
     }
 
     /**
+     * Save image
+     */
+    public function save(): void
+    {
+        if (!isset($this->handler)) {
+            $this->handler = $this->getHandler();
+        }
+        $this->handler->save();
+    }
+
+    /**
+     * Save image in a different path
+     */
+    public function saveAs(string $path): void
+    {
+        if (!isset($this->handler)) {
+            $this->handler = $this->getHandler();
+        }
+        $this->handler->saveAs($path);
+    }
+
+    /**
      * Get handler for the image according to its MIME type
      */
     protected function getHandler(): AbstractHandler
