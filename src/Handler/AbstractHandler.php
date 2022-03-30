@@ -60,14 +60,14 @@ abstract class AbstractHandler
     /**
      * Get EXIF data
      *
-     * @throws RuntimeException if the image has no EXIF data
+     * @throws RuntimeException if the image does not support EXIF data
      */
     abstract public function getEXIFData(): ?EXIFData;
 
     /**
      * Remove EXIF data
      *
-     * @throws RuntimeException if the image has no EXIF data
+     * @throws RuntimeException if the image does not support EXIF data
      */
     abstract public function removeEXIFData(): void;
 

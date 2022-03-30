@@ -187,7 +187,7 @@ class ImageInfo
     /**
      * Get EXIF data
      *
-     * @throws RuntimeException if the image has no EXIF data
+     * @throws RuntimeException if the image does not support EXIF data
      */
     public function getEXIFData(): ?EXIFData
     {
@@ -200,7 +200,7 @@ class ImageInfo
     /**
      * Remove EXIF data
      *
-     * @throws RuntimeException if the image has no EXIF data
+     * @throws RuntimeException if the image does not support EXIF data
      */
     public function removeEXIFData(): void
     {
