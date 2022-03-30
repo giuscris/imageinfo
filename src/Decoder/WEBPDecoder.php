@@ -29,7 +29,7 @@ class WEBPDecoder implements DecoderInterface
             $offset = $position;
             $type = substr($data, $position, 4);
             $position += 4;
-            $size = unpack('V', substr($data, $position, 4))[1];
+            $size = unpack('V', $data, $position)[1];
 
             if ($size % 2 !== 0) {
                 $size++;
