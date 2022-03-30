@@ -4,28 +4,39 @@ namespace ImageInfo\EXIF;
 
 class EXIFData
 {
-    protected array $data;
+    protected EXIFReader $reader;
 
-    public function __construct(array $data)
+    protected string $data;
+
+    protected array $tags;
+
+    public function __construct(string $data)
     {
+        $this->reader = new EXIFReader();
         $this->data = $data;
+        $this->tags = $this->reader->read($this->data);
     }
 
-    public function getData(): array
+    public function getData(): string
     {
         return $this->data;
     }
 
-    public function parsedData()
+    public function getTags(): array
     {
-        foreach ($this->data as $key => $value) {
+        return $this->tags;
+    }
+
+    public function parsedTags()
+    {
+        foreach ($this->tags as $key => $value) {
             yield $key => $value[1] ?? $value[0];
         }
     }
 
     public function has(string $key): bool
     {
-        return array_key_exists($key, $this->data);
+        return array_key_exists($key, $this->tags);
     }
 
     public function hasMultiple(array $keys): bool
@@ -40,13 +51,13 @@ class EXIFData
 
     public function getRaw(string $key, $default = null)
     {
-        return $this->has($key) ? $this->data[$key][0] : $default;
+        return $this->has($key) ? $this->tags[$key][0] : $default;
     }
 
     public function get(string $key, $default = null)
     {
         return $this->has($key)
-            ? $this->data[$key][1] ?? $this->data[$key][0]
+            ? $this->tags[$key][1] ?? $this->tags[$key][0]
             : $default;
     }
 }

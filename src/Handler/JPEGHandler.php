@@ -5,7 +5,6 @@ namespace ImageInfo\Handler;
 use ImageInfo\ColorProfile\ColorProfile;
 use ImageInfo\ColorProfile\ColorSpace;
 use ImageInfo\EXIF\EXIFData;
-use ImageInfo\EXIF\EXIFReader;
 use ImageInfo\Decoder\JPEGDecoder;
 use UnexpectedValueException;
 
@@ -115,8 +114,7 @@ class JPEGHandler extends AbstractHandler
     {
         foreach ($this->decoder->decode($this->data) as $segment) {
             if ($segment['type'] === 0xe1 && strpos($segment['value'], self::EXIF_HEADER) === 0) {
-                $exifData = substr($segment['value'], strlen(self::EXIF_HEADER));
-                return new EXIFData(EXIFReader::fromString($exifData)->getData());
+                return new EXIFData(substr($segment['value'], strlen(self::EXIF_HEADER)));
             }
         }
         return null;

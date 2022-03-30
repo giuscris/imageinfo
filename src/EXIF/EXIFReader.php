@@ -60,189 +60,175 @@ class EXIFReader
     ];
 
     protected const TAG_ALIASES = [
-        'SpectralSensity' => 'SpectralSensitivity',
-        'ISOSpeedRatings' => 'PhotographicSensitivity',
-        'SubjectLocation' => 'SubjectArea'
+        'SpectralSensity'   => 'SpectralSensitivity',
+        'ISOSpeedRatings'   => 'PhotographicSensitivity',
+        'SubjectLocation'   => 'SubjectArea',
+        'GPSVersion'        => 'GPSVersionID',
+        'GPSProcessingMode' => 'GPSProcessingMethod'
     ];
 
     protected static array $EXIFTable;
 
-    protected string $byteOrder;
-
-    protected array $data;
-
-    public function __construct(array $data)
+    public function __construct()
     {
         static::$EXIFTable ??= require __DIR__ . '/tables/EXIF.php';
-        $this->byteOrder = $this->getByteOrder($data);
-        $this->data = $this->parse($data);
     }
 
-    public function getData(): array
+    public function read(string &$data): array
     {
-        return $this->data;
-    }
+        $rawTags = $this->readTagsFromString($data);
 
-    public static function fromFile(string $path): EXIFReader
-    {
-        $stream = fopen($path, 'r');
-        $instance = static::fromStream($stream);
-        fclose($stream);
-        return $instance;
-    }
+        $byteOrder = $rawTags['COMPUTED']['ByteOrderMotorola']
+            ? self::EXIF_BIG_ENDIAN
+            : self::EXIF_LITTLE_ENDIAN;
 
-    public static function fromString(string $data): EXIFReader
-    {
-        $stream = fopen('php://temp', 'r+');
-        fwrite($stream, $data);
-        rewind($stream);
-        $instance = static::fromStream($stream);
-        fclose($stream);
-        return $instance;
-    }
-
-    public static function fromStream($stream): EXIFReader
-    {
-        $exif = @exif_read_data($stream);
-        if ($exif === false) {
-            throw new UnexpectedValueException(error_get_last()['message']);
-        }
-        return new static($exif);
-    }
-
-    protected function parse(array &$data): array
-    {
         foreach (self::IGNORED_SECTIONS as $key) {
-            unset($data[$key]);
+            unset($rawTags[$key]);
         }
 
         foreach (self::UNDEFINED_TAGS_TO_EXIF_TAGS as $source => $dest) {
-            if (isset($data[$source])) {
-                $data[$dest] = $data[$source];
-                unset($data[$source]);
+            if (isset($rawTags[$source])) {
+                $rawTags[$dest] = $rawTags[$source];
+                unset($rawTags[$source]);
             }
         }
 
-        $parsedData = [];
+        $tags = [];
 
-        foreach ($data as $key => $value) {
+        foreach ($rawTags as $key => $value) {
             if (str_starts_with($key, 'UndefinedTag:')) {
-                continue;
-            }
-
-            if ($key === 'UserComment') {
-                try {
-                    $value = rtrim($this->parseUserComment($value), "\x00");
-                } catch (UnexpectedValueException $e) {
-                    continue;
-                }
-            }
-
-            if (is_string($value) && mb_check_encoding($value, 'UTF-8') === false) {
                 continue;
             }
 
             $parsedValue = $value;
 
+            switch (static::$EXIFTable[$key]['type'] ?? null) {
+                case 'binary':
+                    $parsedValue = $this->parseBinary($value);
+                    break;
+
+                case 'coords':
+                    $refKey = static::$EXIFTable[$key]['ref'];
+                    $parsedValue = $this->parseCoordinates($value, $rawTags[$refKey] ?? null);
+                    break;
+
+                case 'datetime':
+                    $subsecondsKey = static::$EXIFTable[$key]['subseconds'];
+                    $timeoffsetKey = static::$EXIFTable[$key]['timeoffset'];
+                    $parsedValue = $this->parseDateTime(
+                        $value,
+                        $rawTags[$subsecondsKey] ?? null,
+                        $rawTags[$timeoffsetKey] ?? null
+                    );
+                    break;
+
+                case 'rational':
+                    $parsedValue = is_array($value)
+                        ? array_map(fn (string $value): float => $this->parseRational($value), $value)
+                        : $this->parseRational($value);
+                    break;
+
+                case 'text':
+                    $parsedValue = $this->parseText($value, $byteOrder);
+                    break;
+
+                case 'version':
+                    $parsedValue = $this->parseVersion($value);
+                    break;
+            }
+
             if (isset(static::$EXIFTable[$key]['description'])) {
                 $description = static::$EXIFTable[$key]['description'];
                 if (is_array($description)) {
-                    $parsedValue = $description[$value] ?? $value;
+                    $parsedValue = $description[$parsedValue] ?? $parsedValue;
                 }
                 if ($description instanceof Closure) {
-                    $parsedValue = $description($value);
+                    $parsedValue = $description($parsedValue);
                 }
             }
 
-            if (isset(static::$EXIFTable[$key]['type'])) {
-                switch (static::$EXIFTable[$key]['type']) {
-                    case 'rational':
-                        $parsedValue = is_array($data[$key])
-                            ? array_map([$this, 'parseRational'], $data[$key])
-                            : $this->parseRational($data[$key]);
-                        break;
-                    case 'datetime':
-                        $subsecondsKey = static::$EXIFTable[$key]['subseconds'];
-                        $timeoffsetKey = static::$EXIFTable[$key]['timeoffset'];
-                        $EXIFDateTime = EXIFDateTime::createFromEXIFTags($data[$key], $data[$subsecondsKey] ?? null, $data[$timeoffsetKey] ?? null);
-                        if ($EXIFDateTime === false) {
-                            break;
-                        }
-                        $parsedValue = $EXIFDateTime;
-                        break;
-                    case 'coords':
-                        $dst = array_map([static::class, 'parseRational'], array_replace([0, 0, 0], $data[$key]));
-                        $parsedValue = $this->parseCoordinates($dst, $data[static::$EXIFTable[$key]['ref']] ?? null);
-                        break;
-                    case 'version':
-                        $parsedValue = $this->parseVersion($data[$key]);
-                        break;
-                }
+            if (is_string($parsedValue) && mb_check_encoding($parsedValue, 'UTF-8') === false) {
+                continue;
             }
 
-            $parsedData[$key] = $value !== $parsedValue ? [$value, $parsedValue] : [$value];
+            $tags[$key] = $value !== $parsedValue ? [$value, $parsedValue] : [$value];
 
             if (isset(self::TAG_ALIASES[$key])) {
                 $alias = self::TAG_ALIASES[$key];
-                $parsedData[$alias] = &$parsedData[$key];
+                $tags[$alias] = &$tags[$key];
             }
         }
 
-        return $parsedData;
+        return $tags;
     }
 
-    protected function getByteOrder(array &$data): string
+    protected function readTagsFromString(string $data): array
     {
-        return $data['COMPUTED']['ByteOrderMotorola'] ? self::EXIF_BIG_ENDIAN : self::EXIF_LITTLE_ENDIAN;
-    }
-
-    protected function parseRational(?string $fraction): ?float
-    {
-        if ($fraction === null) {
-            return null;
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, $data);
+        rewind($stream);
+        $exif = @exif_read_data($stream);
+        fclose($stream);
+        if ($exif === false) {
+            throw new UnexpectedValueException(error_get_last()['message']);
         }
-        [$num, $den] = explode('/', $fraction . '/1');
+        return $exif;
+    }
+
+    protected function parseBinary(string $value): string
+    {
+        for ($i = 0; $i < strlen($value); $i++) {
+            $value[$i] = ord($value[$i]);
+        }
+        return $value;
+    }
+
+    protected function parseCoordinates(array $value, ?string $cardinalRef): float
+    {
+        [$degrees, $minutes, $seconds] = array_map(
+            fn (string $value): float => $this->parseRational($value),
+            array_replace([0, 0, 0], $value)
+        );
+        $direction = ($cardinalRef === 'S' || $cardinalRef === 'W') ? -1 : 1;
+        return $direction * ($degrees + $minutes / 60 + $seconds / 3600);
+    }
+
+    protected function parseDateTime(string $value, ?string $subseconds, ?string $timeoffset): ?EXIFDateTime
+    {
+        $dateTime = EXIFDateTime::createFromEXIFData($value, $subseconds, $timeoffset);
+        return $dateTime === false ? null : $dateTime;
+    }
+
+    protected function parseRational(string $value): float
+    {
+        [$num, $den] = explode('/', $value . '/1');
         return $num / $den;
     }
 
-    protected function parseCoordinates(array $dms, ?string $cardinalRef): float
+    protected function parseText(string &$value, string $byteOrder): ?string
     {
-        [$degrees, $minutes, $seconds] = $dms;
-        $direction = ($cardinalRef === 'S' || $cardinalRef === 'W') ? -1 : 1;
-        return $direction * (float) round($degrees + $minutes / 60 + $seconds / 3600, 6);
+        $encoding = $this->getTextEncoding($value, $byteOrder);
+        $text = mb_convert_encoding(substr($value, 8), 'UTF-8', $encoding);
+        return $text === false ? null : rtrim($text, "\x00");
     }
 
-    protected function parseVersion(string $version): string
+    protected function getTextEncoding(string &$value, string $byteOrder): string
     {
-        return sprintf('%d.%d', substr($version, 0, 2), substr($version, 2, 2));
-    }
-
-    protected function getUserCommentEncoding(string $data)
-    {
-        switch (substr($data, 0, 8)) {
+        switch (substr($value, 0, 8)) {
             case self::EXIF_ENCODING_ASCII:
                 return 'ASCII';
             case self::EXIF_ENCODING_JIS:
                 return 'JIS';
             case self::EXIF_ENCODING_UNICODE:
-                return $this->byteOrder === self::EXIF_BIG_ENDIAN ? 'UCS-2BE' : 'UCS-2LE';
+                return $byteOrder === self::EXIF_BIG_ENDIAN ? 'UCS-2BE' : 'UCS-2LE';
             case self::EXIF_ENCODING_UNDEFINED:
-                return 'auto';
             default:
-                return null;
+                return 'auto';
         }
     }
 
-    protected function parseUserComment(string $data): ?string
+    protected function parseVersion(string $value): string
     {
-        $encoding = $this->getUserCommentEncoding($data);
-        if ($encoding === null) {
-            throw new UnexpectedValueException('Invalid user comment encoding');
-        }
-        $userComment = mb_convert_encoding(substr($data, 8), 'UTF-8', $encoding);
-        if ($userComment === false) {
-            throw new UnexpectedValueException('Cannot convert user comment to UTF-8');
-        }
-        return $userComment;
+        return sprintf('%d.%d', substr($value, 0, 2), substr($value, 2, 2));
     }
 }

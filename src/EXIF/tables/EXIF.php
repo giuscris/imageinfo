@@ -89,15 +89,30 @@ return [
         'type' => 'rational'
     ],
     'ComponentsConfiguration' => [
-        'description' => [
-            0 => 'Does not exist',
-            1 => 'Y',
-            2 => 'Cb',
-            3 => 'Cr',
-            4 => 'R',
-            5 => 'G',
-            6 => 'B'
-        ]
+        'type'        => 'binary',
+        'description' => function (string $value) {
+            return array_map(function (string $char) {
+                switch ($char) {
+                    case 0:
+                        return '–';
+                    case 1:
+                        return 'Y';
+                    case 2:
+                        return 'Cb';
+                    case 3:
+                        return 'Cr';
+                    case 4:
+                        return 'R';
+                    case 5:
+                        return 'G';
+                    case 6:
+                        return 'B';
+                }
+            }, str_split($value));
+        }
+    ],
+    'UserComment' => [
+        'type' => 'text'
     ],
     'CompressedBitsPerPixel' => [
         'type' => 'rational'
@@ -240,11 +255,11 @@ return [
             ];
 
             return [
-                'FlashFired'         => $status[0][$bits[0]],
-                'FlashReturn'        => $status[1][$bits[1]],
-                'FlashMode'          => $status[2][$bits[2]],
-                'FlashFunction'      => $status[3][$bits[3]],
-                'FlashRedEyeMode'    => $status[4][$bits[4]]
+                'FlashFired'      => $status[0][$bits[0]],
+                'FlashReturn'     => $status[1][$bits[1]],
+                'FlashMode'       => $status[2][$bits[2]],
+                'FlashFunction'   => $status[3][$bits[3]],
+                'FlashRedEyeMode' => $status[4][$bits[4]]
             ];
         }
     ],
@@ -275,6 +290,7 @@ return [
         ]
     ],
     'FileSource' => [
+        'type'        => 'binary',
         'description' => [
             0 => 'Others',
             1 => 'Scanner of transparent type',
@@ -283,6 +299,7 @@ return [
         ]
     ],
     'SceneType' => [
+        'type'        => 'binary',
         'description' => [
             1 => 'A directly photographed image'
         ]
@@ -387,6 +404,12 @@ return [
     'Humidity' => [
         'type' => 'rational'
     ],
+    'GPSVersion' => [
+        'type'        => 'binary',
+        'description' => function (string $value) {
+            return sprintf('%d.%d.%d.%d', $value[0], $value[1], $value[2], $value[3]);
+        }
+    ],
     'GPSLatitude' => [
         'type' => 'coords',
         'ref'  => 'GPSLatitudeRef'
@@ -396,6 +419,7 @@ return [
         'ref'  => 'GPSLongitudeRef'
     ],
     'GPSAltitudeRef' => [
+        'type'        => 'binary',
         'description' => [
             0 => 'Sea level',
             1 => 'Sea level reference (negative value)'
@@ -474,6 +498,12 @@ return [
     ],
     'GPSDestDistance' => [
         'type' => 'rational'
+    ],
+    'GPSProcessingMode' => [
+        'type' => 'text'
+    ],
+    'GPSAreaInformation' => [
+        'type' => 'text'
     ],
     'GPSDifferential' => [
         'description' => [

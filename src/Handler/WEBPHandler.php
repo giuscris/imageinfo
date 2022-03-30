@@ -5,7 +5,6 @@ namespace ImageInfo\Handler;
 use ImageInfo\ColorProfile\ColorProfile;
 use ImageInfo\ColorProfile\ColorSpace;
 use ImageInfo\EXIF\EXIFData;
-use ImageInfo\EXIF\EXIFReader;
 use ImageInfo\Decoder\WEBPDecoder;
 
 class WEBPHandler extends AbstractHandler
@@ -106,7 +105,7 @@ class WEBPHandler extends AbstractHandler
     {
         foreach ($this->decoder->decode($this->data) as $chunk) {
             if ($chunk['type'] === 'EXIF') {
-                return new EXIFData(EXIFReader::fromString($chunk['value'])->getData());
+                return new EXIFData($chunk['value']);
             }
         }
 

@@ -5,7 +5,6 @@ namespace ImageInfo\Handler;
 use ImageInfo\ColorProfile\ColorProfile;
 use ImageInfo\ColorProfile\ColorSpace;
 use ImageInfo\EXIF\EXIFData;
-use ImageInfo\EXIF\EXIFReader;
 use ImageInfo\Decoder\PNGDecoder;
 use UnexpectedValueException;
 
@@ -110,7 +109,7 @@ class PNGHandler extends AbstractHandler
     {
         foreach ($this->decoder->decode($this->data) as $chunk) {
             if ($chunk['type'] === 'eXIf') {
-                return new EXIFData(EXIFReader::fromString($chunk['value'])->getData());
+                return new EXIFData($chunk['value']);
             }
         }
 
