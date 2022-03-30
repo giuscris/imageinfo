@@ -23,23 +23,34 @@ class WEBPHandler extends AbstractHandler
             'animationRepeatCount' => null
         ];
 
+        $isVP8ChunkParsed = false;
+
         foreach ($this->decoder->decode($this->data) as $chunk) {
-            switch ($chunk['type']) {
-                case 'VP8X':
+            switch (true) {
+                case !$isVP8ChunkParsed && $chunk['type'] === 'VP8X':
                     $info['alphaChannel'] = ((ord($chunk['value'][0]) >> 4) & 0x01) === 1;
                     $info['width'] = unpack('V', substr($chunk['value'], 4, 3) . "\x00")[1] + 1;
                     $info['height'] = unpack('V', substr($chunk['value'], 7, 3) . "\x00")[1] + 1;
-                    break 2;
-                case 'VP8 ':
+                    $isVP8ChunkParsed = true;
+                    break;
+
+                case !$isVP8ChunkParsed && $chunk['type'] === 'VP8 ':
                     $info['width'] = unpack('v', $chunk['value'], 6)[1] & 0x3fff;
                     $info['height'] = unpack('v', $chunk['value'], 8)[1] & 0x3fff;
-                    break 2;
-                case 'VP8L':
+                    $isVP8ChunkParsed = true;
+                    break;
+
+                case !$isVP8ChunkParsed && $chunk['type'] === 'VP8L':
                     $bits = unpack('V', $chunk['value'], 1)[1];
                     $info['width'] = ($bits & 0x3fff) + 1;
                     $info['height'] = (($bits >> 14) & 0x3fff) + 1;
                     $info['alphaChannel'] = (($bits >> 28) & 0x01) === 1;
-                    break 2;
+                    $isVP8ChunkParsed = true;
+                    break;
+
+                case $info['alphaChannel'] === false && $chunk['type'] === 'ALPH':
+                    $info['alphaChannel'] = true;
+                    break;
             }
         }
 
