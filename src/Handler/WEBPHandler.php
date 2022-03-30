@@ -51,6 +51,15 @@ class WEBPHandler extends AbstractHandler
                 case $info['alphaChannel'] === false && $chunk['type'] === 'ALPH':
                     $info['alphaChannel'] = true;
                     break;
+
+                case $chunk['type'] === 'ANIM':
+                    $info['animation'] = true;
+                    $info['animationRepeatCount'] = unpack('v', $chunk['value'], 4)[1];
+                    break;
+
+                case $info['animation'] && $chunk['type'] === 'ANMF':
+                    $info['animationFrames']++;
+                    break;
             }
         }
 
