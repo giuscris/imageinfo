@@ -25,10 +25,22 @@ class WEBPHandler extends AbstractHandler
         ];
 
         foreach ($this->decoder->decode($this->data) as $chunk) {
-            if ($chunk['type'] === 'VP8X') {
-                $info['alphaChannel'] = ord($chunk['value'][3]) & 0x01;
-                $info['width'] = unpack('V', substr($chunk['value'], 4, 3) . "\x00")[1] + 1;
-                $info['height'] = unpack('V', substr($chunk['value'], 7, 3) . "\x00")[1] + 1;
+            switch ($chunk['type']) {
+                case 'VP8X':
+                    $info['alphaChannel'] = ((ord($chunk['value'][0]) >> 4) & 0x01) === 1;
+                    $info['width'] = unpack('V', substr($chunk['value'], 4, 3) . "\x00")[1] + 1;
+                    $info['height'] = unpack('V', substr($chunk['value'], 7, 3) . "\x00")[1] + 1;
+                    break 2;
+                case 'VP8 ':
+                    $info['width'] = unpack('v', $chunk['value'], 6)[1] & 0x3fff;
+                    $info['height'] = unpack('v', $chunk['value'], 8)[1] & 0x3fff;
+                    break 2;
+                case 'VP8L':
+                    $bits = unpack('V', $chunk['value'], 1)[1];
+                    $info['width'] = ($bits & 0x3fff) + 1;
+                    $info['height'] = (($bits >> 14) & 0x3fff) + 1;
+                    $info['alphaChannel'] = (($bits >> 28) & 0x01) === 1;
+                    break 2;
             }
         }
 
@@ -60,7 +72,7 @@ class WEBPHandler extends AbstractHandler
     public function setColorProfile(ColorProfile $profile): void
     {
         foreach ($this->decoder->decode($this->data) as $chunk) {
-            if ($chunk['type'] === 'VP8X') {
+            if (in_array($chunk['type'], ['VP8X', 'VP8 ', 'VP8L'], true)) {
                 $ICCPChunk = $this->encodeChunk('ICCP', $profile->getData());
                 $this->data = substr_replace($this->data, $ICCPChunk, $chunk['position'], 0);
                 break;
