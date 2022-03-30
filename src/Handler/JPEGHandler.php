@@ -35,8 +35,8 @@ class JPEGHandler extends AbstractHandler
             if ($segment['type'] > 0xbf && $segment['type'] < 0xc3
             || $segment['type'] > 0xc8 && $segment['type'] < 0xcc) {
                 $info['colorDepth'] = ord($segment['value'][0]);
-                $info['width'] = unpack('n', $segment['value'], 1)[1];
-                $info['height'] = unpack('n', $segment['value'], 3)[1];
+                $info['height'] = unpack('n', $segment['value'], 1)[1];
+                $info['width'] = unpack('n', $segment['value'], 3)[1];
                 $info['colorSpace'] = $this->getColorSpace(ord($segment['value'][5]));
                 break;
             }
