@@ -85,7 +85,7 @@ class GIFHandler extends AbstractHandler
         throw new RuntimeException('GIF does not support EXIF data');
     }
 
-    public function removeExifData(): void
+    public function removeEXIFData(): void
     {
         throw new RuntimeException('GIF does not support EXIF data');
     }
