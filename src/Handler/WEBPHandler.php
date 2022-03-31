@@ -26,40 +26,38 @@ class WEBPHandler extends AbstractHandler
         $isVP8ChunkParsed = false;
 
         foreach ($this->decoder->decode($this->data) as $chunk) {
-            switch (true) {
-                case !$isVP8ChunkParsed && $chunk['type'] === 'VP8X':
-                    $info['alphaChannel'] = ((ord($chunk['value'][0]) >> 4) & 0x01) === 1;
-                    $info['width'] = unpack('V', substr($chunk['value'], 4, 3) . "\x00")[1] + 1;
-                    $info['height'] = unpack('V', substr($chunk['value'], 7, 3) . "\x00")[1] + 1;
-                    $isVP8ChunkParsed = true;
-                    break;
+            if (!$isVP8ChunkParsed && $chunk['type'] === 'VP8X') {
+                $info['alphaChannel'] = ((ord($chunk['value'][0]) >> 4) & 0x01) === 1;
+                $info['width'] = unpack('V', substr($chunk['value'], 4, 3) . "\x00")[1] + 1;
+                $info['height'] = unpack('V', substr($chunk['value'], 7, 3) . "\x00")[1] + 1;
+                $isVP8ChunkParsed = true;
+            }
 
-                case !$isVP8ChunkParsed && $chunk['type'] === 'VP8 ':
-                    $info['width'] = unpack('v', $chunk['value'], 6)[1] & 0x3fff;
-                    $info['height'] = unpack('v', $chunk['value'], 8)[1] & 0x3fff;
-                    $isVP8ChunkParsed = true;
-                    break;
+            if (!$isVP8ChunkParsed && $chunk['type'] === 'VP8 ') {
+                $info['width'] = unpack('v', $chunk['value'], 6)[1] & 0x3fff;
+                $info['height'] = unpack('v', $chunk['value'], 8)[1] & 0x3fff;
+                $isVP8ChunkParsed = true;
+            }
 
-                case !$isVP8ChunkParsed && $chunk['type'] === 'VP8L':
-                    $bits = unpack('V', $chunk['value'], 1)[1];
-                    $info['width'] = ($bits & 0x3fff) + 1;
-                    $info['height'] = (($bits >> 14) & 0x3fff) + 1;
-                    $info['alphaChannel'] = (($bits >> 28) & 0x01) === 1;
-                    $isVP8ChunkParsed = true;
-                    break;
+            if (!$isVP8ChunkParsed && $chunk['type'] === 'VP8L') {
+                $bits = unpack('V', $chunk['value'], 1)[1];
+                $info['width'] = ($bits & 0x3fff) + 1;
+                $info['height'] = (($bits >> 14) & 0x3fff) + 1;
+                $info['alphaChannel'] = (($bits >> 28) & 0x01) === 1;
+                $isVP8ChunkParsed = true;
+            }
 
-                case $info['alphaChannel'] === false && $chunk['type'] === 'ALPH':
-                    $info['alphaChannel'] = true;
-                    break;
+            if ($info['alphaChannel'] === false && $chunk['type'] === 'ALPH') {
+                $info['alphaChannel'] = true;
+            }
 
-                case $chunk['type'] === 'ANIM':
-                    $info['animation'] = true;
-                    $info['animationRepeatCount'] = unpack('v', $chunk['value'], 4)[1];
-                    break;
+            if ($chunk['type'] === 'ANIM') {
+                $info['animation'] = true;
+                $info['animationRepeatCount'] = unpack('v', $chunk['value'], 4)[1];
+            }
 
-                case $info['animation'] && $chunk['type'] === 'ANMF':
-                    $info['animationFrames']++;
-                    break;
+            if ($info['animation'] && $chunk['type'] === 'ANMF') {
+                $info['animationFrames']++;
             }
         }
 
