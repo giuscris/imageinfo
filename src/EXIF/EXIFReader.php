@@ -178,7 +178,11 @@ class EXIFReader
     protected function parseBinary(string $value): string
     {
         for ($i = 0; $i < strlen($value); $i++) {
-            $value[$i] = ord($value[$i]);
+            $code = ord($value[$i]);
+            if ($code > 9) {
+                throw new UnexpectedValueException(sprintf('Character \\x%x cannot be represented by a single decimal digit', $code));
+            }
+            $value[$i] = $code;
         }
         return $value;
     }
